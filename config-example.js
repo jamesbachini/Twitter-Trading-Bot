@@ -8,7 +8,7 @@ config =  {
 	quantity: 10,
 	trailingStop: -0.026,
 	twitterAPI: {
-		"user": "@Me",
+		"user": "@me",
 		"consumer_key": "123",
 		"consumer_secret": "123",
 		"access_token_key": "123-abc",
