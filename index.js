@@ -4,6 +4,8 @@ const crypto = require('crypto');
 
 const config = require('./config.js');
 
+const markets = {};
+
 const client = new Twitter({
 	consumer_key: config.twitterAPI.consumer_key,
 	consumer_secret: config.twitterAPI.consumer_secret,
@@ -11,20 +13,40 @@ const client = new Twitter({
 	access_token_secret: config.twitterAPI.access_token_secret,
 });
 
+
+const	round = (num,decimals=8,down=false) => {
+	if (typeof num !== 'number') num = parseFloat(num);
+	const multiplier = 10 ** decimals;
+	let roundedNumber = Math.round(num * multiplier) / multiplier;
+	if (down) roundedNumber = Math.floor(num * multiplier) / multiplier;
+	return Number(roundedNumber);
+}
+
 const getID = async (username) => {
 	return new Promise((resolve, reject) => {
 		client.get('users/lookup', {screen_name: username}, (error, tweets, response) => {
-			if(error) throw error;
+			if (error) console.log(username, error);
 			const twitterID = JSON.parse(response.body)[0].id;
 			resolve(twitterID);
 		});
 	});
 }
 
-const startStream = async () => {
-	const keyword = config.keyword.toLowerCase();
-	const twitterID = await getID(config.follow);
-	const filter = { follow: twitterID }; //  { track: 'doge' };
+const sortFollowerIDs = () => {
+	return new Promise((resolve, reject) => {
+		const followerIDs = [];
+		config.follows.forEach(async (screenname,i) => {
+			await new Promise(r => setTimeout(r, i * 500));
+			const twitterID = await getID(screenname);
+			console.log(`TwitterID: ${screenname} ${twitterID}`);
+			followerIDs.push(twitterID);
+			if (followerIDs.length === config.follows.length) resolve(followerIDs);
+		});
+	});
+}
+
+const startStream = async (followerIDs) => {
+	const filter = { follow: followerIDs.join(',') };
 	client.stream('statuses/filter', filter,  (stream) => {
 		stream.on('data', (tweet) => {
 			let tweetText = tweet.text;
@@ -32,11 +54,14 @@ const startStream = async () => {
 				tweetText = tweet.extended_tweet.full_text;
 			}
 			tweetText = tweetText.toLowerCase();
-			if (tweet.user.id !== twitterID) return false;
+			if (!followerIDs.includes(tweet.user.id)) return false;
 			console.log(tweetText);
-			if (tweetText.includes(keyword)) {
-				executeTrade();
-			} 
+			config.keywords.forEach((kw) => {
+				const keyword = kw.toLowerCase();
+				if (tweetText.includes(keyword)) {
+					executeTrade(keyword);
+				}
+			});
 		});
 		stream.on('error', (error) => {
 			console.log(error);
@@ -49,12 +74,27 @@ const startStream = async () => {
 	});
 }
 
-const ftxOrder = () => {
+const sortMarkets = async () => {
+	request('https://ftx.com/api/markets', (err, res, ticket) => {
+		if (err)  console.log(err);
+		if (ticket) {
+			const ticketObject = JSON.parse(ticket);
+			ticketObject.result.forEach((market) => {
+				if (!market.name.includes('-PERP')) return false;
+				markets[market] = market.price; // USD
+			});
+		} else {
+			console.log(ticket);
+		}
+	});
+}
+
+const ftxOrder = (market,quantity) => {
 	const ts = new Date().getTime();
 	const query = {
-		market: config.market,
+		market: market,
 		side: 'buy',
-		size: config.quantity,
+		size: quantity,
 		type: 'market',
 		price: 0,
 	}
@@ -70,20 +110,20 @@ const ftxOrder = () => {
 	request({headers,uri,method:'POST',body:query,json:true}, function (err, res, ticket) {
 		if (err) console.log(err);
 		if (ticket && ticket.result && ticket.result.id) {
-			ftxTrailingStop();
+			console.log(`Order confirmed: ${ticket.result.id}`);
 		} else {
 			console.log(ticket);
 		}
 	});
 }
 
-const ftxTrailingStop = () => {
+const ftxTrailingStop = (market, quantity, stop) => {
 	const ts = new Date().getTime();
 	const query = {
-		market: config.market,
+		market: market,
 		side: 'sell',
-		trailValue: config.trailingStop,
-		size: config.quantity,
+		trailValue: stop,
+		size: quantity,
 		type: 'trailingStop',
 		reduceOnly: true,
 	}
@@ -106,12 +146,29 @@ const ftxTrailingStop = () => {
 	});
 }
 
-const executeTrade = () => {
-	console.log('Executing trade');
-	ftxOrder();
+const executeTrade = (keyword) => {
+	const cleanKW = keyword.split(/[^a-zA-Z0-9]/).join('').toUpperCase();
+	const market = config.market.split('{KEYWORD}').join(cleanKW);
+	if (!markets[market]) return false;
+	const price = markets[market];
+	const quantity = round(config.usdValue / price);
+	console.log(`Executing trade ${market} ${quantity}`);
+	ftxOrder(market, quantity);
+	const trailingStop =  round(trailingStopPercentage * price * -1);
+	console.log(`Setting trailing stop ${market} ${quantity} ${trailingStop}`);
+	ftxTrailingStop(market, quantity, trailingStop);
 }
 
-startStream();
+const init = async () => {
+	const followerIDs = await sortFollowerIDs();
+	await sortMarkets();
+	startStream(followerIDs);
+	setInterval(() => {
+		sortMarkets();
+	}, 300000); // 5 min updates
+}
+
+init();
 
 process.on('unhandledRejection', (reason, p) => {
 	console.log('ERROR 110', reason);
