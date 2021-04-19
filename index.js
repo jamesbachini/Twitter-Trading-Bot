@@ -81,7 +81,7 @@ const sortMarkets = async () => {
 			const ticketObject = JSON.parse(ticket);
 			ticketObject.result.forEach((market) => {
 				if (!market.name.includes('-PERP')) return false;
-				markets[market] = market.price; // USD
+				markets[market.name] = market.price; // USD
 			});
 		} else {
 			console.log(ticket);
@@ -154,7 +154,7 @@ const executeTrade = (keyword) => {
 	const quantity = round(config.usdValue / price);
 	console.log(`Executing trade ${market} ${quantity}`);
 	ftxOrder(market, quantity);
-	const trailingStop =  round(trailingStopPercentage * price * -1);
+	const trailingStop =  round((config.trailingStopPercentage * -0.01) * price);
 	console.log(`Setting trailing stop ${market} ${quantity} ${trailingStop}`);
 	ftxTrailingStop(market, quantity, trailingStop);
 }
@@ -173,4 +173,3 @@ init();
 process.on('unhandledRejection', (reason, p) => {
 	console.log('ERROR 110', reason);
 });
-
