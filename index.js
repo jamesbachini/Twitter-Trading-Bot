@@ -26,7 +26,7 @@ const getID = async (username) => {
 	return new Promise((resolve, reject) => {
 		client.get('users/lookup', {screen_name: username}, (error, tweets, response) => {
 			if (error) console.log(username, error);
-			const twitterID = JSON.parse(response.body)[0].id;
+			const twitterID = JSON.parse(response.body)[0].id_str;
 			resolve(twitterID);
 		});
 	});
@@ -46,7 +46,7 @@ const sortFollowerIDs = () => {
 }
 
 const startStream = async (followerIDs) => {
-	const filter = { follow: followerIDs.join(',') };
+	const filter = { filter_level: 'none', follow: followerIDs.join(',') };
 	client.stream('statuses/filter', filter,  (stream) => {
 		stream.on('data', (tweet) => {
 			let tweetText = tweet.text;
@@ -54,8 +54,8 @@ const startStream = async (followerIDs) => {
 				tweetText = tweet.extended_tweet.full_text;
 			}
 			tweetText = tweetText.toLowerCase();
-			if (!followerIDs.includes(tweet.user.id)) return false;
-			console.log(tweetText);
+			if (!followerIDs.includes(tweet.user.id_str)) return false;
+			console.log(tweet.user.screen_name, tweetText);
 			config.keywords.forEach((kw) => {
 				const keyword = kw.toLowerCase();
 				if (tweetText.includes(keyword)) {
