@@ -55,7 +55,7 @@ const startStream = async (followerIDs) => {
 			}
 			tweetText = tweetText.toLowerCase();
 			if (!followerIDs.includes(tweet.user.id_str)) return false;
-			console.log(tweet.user.screen_name, tweetText);
+			console.log(`[${tweet.user.screen_name}] ${tweetText}`);
 			config.keywords.forEach((kw) => {
 				const keyword = kw.toLowerCase();
 				if (tweetText.includes(keyword)) {
