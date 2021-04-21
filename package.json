@@ -1,8 +1,9 @@
 {
-  "name": "Twitter Trading Bot",
+  "name": "Twitter-Trading-Bot",
   "version": "0.1.1",
   "author": "James Bachini",
   "description": "A quick and simple script for social trading based on Twitter mentions",
+  "homepage": "https://jamesbachini.com/twitter-trading-bot/",
   "license": "GPLv3",
   "engines": {
     "node": ">=0.10"
