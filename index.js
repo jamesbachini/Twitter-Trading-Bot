@@ -71,6 +71,10 @@ const startStream = async (followerIDs) => {
 			startStream();
 		});
 		console.log('Twitter API Stream Started');
+		setTimeout(() => {
+			stream.destroy();
+			startStream(followerIDs);
+		}, 3600000); // reset stream
 	});
 }
 
