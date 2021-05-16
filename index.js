@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const config = require('./config.js');
 
 const markets = {};
+let twitterStream = {};
 
 const client = new Twitter({
 	consumer_key: config.twitterAPI.consumer_key,
@@ -47,8 +48,12 @@ const sortFollowerIDs = () => {
 
 const startStream = async (followerIDs) => {
 	const filter = { filter_level: 'none', follow: followerIDs.join(',') };
-	client.stream('statuses/filter', filter,  (stream) => {
-		stream.on('data', (tweet) => {
+	client.stream('statuses/filter', filter,  async (stream) => {
+		if (twitterStream.destroy) twitterStream.destroy(); // close old stream
+		await new Promise(r => setTimeout(r, 2000));
+		twitterStream = stream;
+		twitterStream.on('data', (tweet) => {
+			console.log(tweet);
 			let tweetText = tweet.text;
 			if (tweet.extended_tweet && tweet.extended_tweet.full_text) {
 				tweetText = tweet.extended_tweet.full_text;
@@ -63,16 +68,22 @@ const startStream = async (followerIDs) => {
 				}
 			});
 		});
-		stream.on('error', (error) => {
+		twitterStream.on('error', (error) => {
 			console.log(error);
 		});
-		stream.on('disconnect', (error) => {
+		twitterStream.on('disconnect', (error) => {
 			console.log('Stream Disconnected...');
 			startStream();
 		});
+		twitterStream.on('reconnect', (request, response, connectInterval) => {
+			console.log('Waiting to reconnect in '+connectInterval+'ms');
+			setTimeout(() => {
+				startStream();
+			}, connectInterval + 100);
+		});
 		console.log('Twitter API Stream Started');
 		setTimeout(() => {
-			stream.destroy();
+			twitterStream.destroy();
 			startStream(followerIDs);
 		}, 3600000); // reset stream
 	});
