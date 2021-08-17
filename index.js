@@ -53,14 +53,14 @@ const startStream = async (followerIDs) => {
 		await new Promise(r => setTimeout(r, 2000));
 		twitterStream = stream;
 		twitterStream.on('data', (tweet) => {
-			console.log(tweet);
+			//console.log(tweet);
 			let tweetText = tweet.text;
 			if (tweet.extended_tweet && tweet.extended_tweet.full_text) {
 				tweetText = tweet.extended_tweet.full_text;
 			}
 			tweetText = tweetText.toLowerCase();
 			if (!followerIDs.includes(tweet.user.id_str)) return false;
-			console.log(`[${tweet.user.screen_name}] ${tweetText}`);
+			console.log(`[${tweet.user.screen_name}] ${tweetText} (${new Date().getTime()})`);
 			config.keywords.forEach((kw) => {
 				const keyword = kw.toLowerCase();
 				if (tweetText.includes(keyword)) {
@@ -167,10 +167,10 @@ const executeTrade = (keyword) => {
 	if (!markets[market]) return false;
 	const price = markets[market];
 	const quantity = round(config.usdValue / price);
-	console.log(`Executing trade ${market} ${quantity}`);
+	console.log(`Executing trade ${market} ${quantity} (${new Date().getTime()})`);
 	ftxOrder(market, quantity);
 	const trailingStop =  round((config.trailingStopPercentage * -0.01) * price);
-	console.log(`Setting trailing stop ${market} ${quantity} ${trailingStop}`);
+	console.log(`Setting trailing stop ${market} ${quantity} ${trailingStop}  (${new Date().getTime()})`);
 	ftxTrailingStop(market, quantity, trailingStop);
 }
 
